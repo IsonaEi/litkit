@@ -1,17 +1,22 @@
 # litkit
 
 A small, scriptable toolkit for working with scientific literature, built as
-three composable command-line stages:
+four composable command-line stages:
 
 ```
-  ┌─────────────┐      ┌─────────────┐      ┌─────────────┐
-  │  discover   │  →   │   manage    │  →   │   search    │
-  │ find papers │      │ build a PDF │      │ semantically│
-  │ across 5    │      │ library:    │      │ search your │
-  │ sources,    │      │ download,   │      │ own corpus  │
-  │ rank them   │      │ convert,    │      │ (BGE-M3 +   │
-  │ (BM25)      │      │ audit       │      │ Qdrant)     │
-  └─────────────┘      └─────────────┘      └─────────────┘
+  ┌───────────┐    ┌───────────┐    ┌───────────┐    ┌───────────┐
+  │ discover  │ →  │  manage   │ →  │   notes   │ →  │  search   │
+  │ find      │    │ build a   │    │ annotate  │    │ search    │
+  │ papers    │    │ PDF       │    │ with a    │    │ your own  │
+  │ across 5  │    │ library:  │    │ structured│    │ corpus    │
+  │ sources,  │    │ download, │    │ 7-section │    │ (BGE-M3 + │
+  │ rank (BM25)    │ convert,  │    │ template  │    │ Qdrant)   │
+  │           │    │ audit     │    │           │    │           │
+  └───────────┘    └───────────┘    └───────────┘    └─────┬─────┘
+        ▲                                                  │
+        └──────────────────────────────────────────────────┘
+          the notes you write become the corpus that search
+          indexes — and that discover's re-ranker scores against
 ```
 
 1. **[discover](discover/)** — Search PubMed, bioRxiv, arXiv, Semantic Scholar
@@ -21,14 +26,23 @@ three composable command-line stages:
 2. **[manage](manage/)** — Turn a DOI into an organised local library: download
    the open-access PDF, convert it to markdown, enrich metadata from Semantic
    Scholar, and audit the collection for consistency.
-3. **[search](search/)** — Index your local PDF/markdown library with Docling
+3. **[notes](notes/)** — Annotate each paper with a structured 7-section reading
+   note (Known Premises / Gap & Problem / Methods / Results & Interpretation /
+   Core Contribution / Limitations & Critique / Connections), every section
+   anchored by a verbatim source quote. A template + a runner-agnostic LLM-agent
+   prompt; no code, no extra dependency.
+4. **[search](search/)** — Index your local PDF/markdown library with Docling
    chunking and BGE-M3 hybrid (dense + sparse) embeddings into Qdrant, then run
    hybrid semantic + lexical search with RRF fusion.
 
-The three stages are independent — use any one on its own — but they chain
-naturally: the JSON `candidates` file from **discover** feeds DOIs into
-**manage**, and the library that **manage** builds is exactly what **search**
-indexes.
+The four stages are independent — use any one on its own — but they chain
+naturally, and they close into a loop:
+
+- the JSON `candidates` file from **discover** feeds DOIs into **manage**;
+- the library that **manage** builds is what you annotate in **notes**;
+- the notes you write become part of the corpus that **search** indexes **and**
+  that **discover**'s optional Stage-2 re-ranker scores new papers against — so
+  the more you read and annotate, the sharper both discovery and retrieval get.
 
 ## Quickstart
 
@@ -52,7 +66,11 @@ ENTREZ_EMAIL=you@example.com python3 discover/scripts/run_scout.py --once
 bash manage/scripts/download.sh "10.7554/eLife.12345" library/papers/
 bash manage/scripts/convert.sh  library/papers/10-7554_eLife-12345.pdf
 
-# 3. Search — index a library, then query it:
+# 3. Notes — annotate a paper with the structured template (by hand, or hand the
+#    prompt in notes/references/annotation-prompt.md to your LLM agent):
+$EDITOR notes/templates/note-template.md   # copy the template block into a note
+
+# 4. Search — index your library + notes, then query:
 export LIT_QUERY_CORPUS="$PWD/library"
 python3 search/scripts/ingest.py
 python3 search/scripts/search.py "place cells remapping" --format text
@@ -72,6 +90,7 @@ you only install what you use:
 | `discover` | discover | `biopython`, `requests`, `feedparser` |
 | `discover-rerank` | discover (optional) | `sentence-transformers`, `numpy` |
 | `manage` | manage | `requests` |
+| — | notes | nothing — markdown template + LLM-agent prompt, no Python deps |
 | `search` | search | `docling`, `FlagEmbedding`, `qdrant-client` |
 | `all` | — | all of the above |
 
