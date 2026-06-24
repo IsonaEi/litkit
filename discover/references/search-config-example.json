@@ -1,0 +1,46 @@
+{
+  "lookback_days": 7,
+  "schedule": "0 9 * * MON",
+  "timezone": "UTC",
+  "relevance_threshold": 7,
+  "max_digest_papers": 10,
+  "retry_attempts": 1,
+  "scout_timeout_s": 60,
+  "sources": {
+    "pubmed": true,
+    "biorxiv": true,
+    "arxiv": true,
+    "semantic_scholar": true,
+    "rss": true
+  },
+  "rss_feeds": {
+    "nature_neuroscience": "https://www.nature.com/neuro.rss",
+    "nature_communications": "https://www.nature.com/ncomms.rss",
+    "elife": "https://elifesciences.org/rss/recent.xml",
+    "plos_comp_biol": "https://journals.plos.org/ploscompbiol/feed/atom"
+  },
+  "keyword_clusters": {
+    "spatial-memory": [
+      "place cells",
+      "grid cells",
+      "spatial navigation",
+      "hippocampus",
+      "entorhinal cortex"
+    ],
+    "neural-dynamics": [
+      "theta oscillations",
+      "sharp-wave ripples",
+      "neural manifold",
+      "population vector decoding",
+      "attractor network"
+    ],
+    "methods": [
+      "calcium imaging",
+      "optogenetics",
+      "two-photon",
+      "electrophysiology"
+    ]
+  },
+  "pubmed_max_results": 50,
+  "biorxiv_max_results": 30
+}

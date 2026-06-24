@@ -1,0 +1,29 @@
+# Byte-compiled / cache
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+
+# Embedding / corpus caches
+*.pkl
+
+# Backups & editor noise
+*.bak
+*.swp
+*~
+
+# Environments & secrets
+.env
+.venv/
+venv/
+
+# Local data, corpora, and tool output
+data/
+qdrant_storage/
+.lit-query/
+/tmp/
+
+# OS noise
+.DS_Store

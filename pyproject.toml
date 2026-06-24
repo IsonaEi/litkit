@@ -1,0 +1,77 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "litkit"
+version = "0.1.0"
+description = "A literature toolkit: discover papers across sources, manage a local PDF library, and search it semantically."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "Apache-2.0" }
+authors = [
+    { name = "Meng-Xuan Liu" },
+]
+keywords = [
+    "literature",
+    "academic-search",
+    "pubmed",
+    "arxiv",
+    "biorxiv",
+    "semantic-scholar",
+    "semantic-search",
+    "bge-m3",
+    "qdrant",
+    "bm25",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Text Processing :: Indexing",
+]
+# The core install ships the orchestration code only; each stage pulls its
+# own heavier dependencies through the optional extras below.
+dependencies = []
+
+[project.optional-dependencies]
+# Stage 1 — discover: multi-source paper discovery + ranking.
+discover = [
+    "biopython",   # PubMed (Bio.Entrez)
+    "requests",    # bioRxiv REST API
+    "feedparser",  # journal RSS feeds
+]
+# Optional Stage-2 corpus-affinity re-ranking for discover.
+discover-rerank = [
+    "sentence-transformers",
+    "numpy",
+]
+# Stage 2 — manage: metadata enrichment (download/convert/audit use system
+# tools: curl, pdftotext, file, optional uvx markitdown).
+manage = [
+    "requests",    # Semantic Scholar metadata enrichment
+]
+# Stage 3 — search: local hybrid semantic search.
+search = [
+    "docling",
+    "FlagEmbedding",
+    "qdrant-client",
+]
+# Everything.
+all = [
+    "litkit[discover]",
+    "litkit[discover-rerank]",
+    "litkit[manage]",
+    "litkit[search]",
+]
+
+[project.urls]
+Homepage = "https://github.com/IsonaEi/litkit"
+Repository = "https://github.com/IsonaEi/litkit"
+
+[tool.setuptools]
+# Tools are organised as standalone script directories rather than an importable
+# package; there is nothing to auto-discover.
+packages = []
