@@ -1,33 +1,32 @@
-#!/usr/bin/env python3
-"""scout_semantic.py — Semantic Scholar scout for the discover tool.
+"""Semantic Scholar source — searches the S2 graph API for recent papers.
 
-Searches Semantic Scholar graph API for recent papers matching config keywords.
-Includes citation_count in output for relevance scoring.
-Outputs a JSON array of papers to stdout.
-
-Usage:
-    python3 scout_semantic.py           # normal run
-    python3 scout_semantic.py --test    # return 2 dummy papers, no network
+Includes citation counts in its output for relevance scoring. Uses only the
+standard library (urllib) plus the optional S2_API_KEY.
 """
 
-import json
-import sys
-import datetime
-import time
-from urllib.parse import urlencode
-from urllib.request import urlopen, Request
-from urllib.error import URLError, HTTPError
+from __future__ import annotations
 
-from config import LITKIT_CONFIG, S2_API_KEY
-from scout_utils import load_config, all_keywords, keyword_hits, paper_schema
+import datetime
+import json
+import logging
+import time
+from urllib.error import HTTPError, URLError
+from urllib.parse import urlencode
+from urllib.request import Request, urlopen
+
+from litkit.config import get_s2_api_key
+from litkit.discover.sources.common import keyword_hits, paper_schema
+
+log = logging.getLogger(__name__)
+
+NAME = "semantic_scholar"
 
 SS_SEARCH_URL = "https://api.semanticscholar.org/graph/v1/paper/search"
 SS_FIELDS = "title,authors,year,publicationDate,externalIds,abstract,citationCount,url"
 
-# ── Test mode ────────────────────────────────────────────────────────────────
-
 
 def dummy_papers() -> list[dict]:
+    """Two offline dummy papers for the no-network smoke test."""
     today = datetime.date.today().isoformat()
     return [
         paper_schema(
@@ -55,11 +54,8 @@ def dummy_papers() -> list[dict]:
     ]
 
 
-# ── Semantic Scholar query ────────────────────────────────────────────────────
-
-
-def search_keyword(keyword: str, since_date: str, limit: int = 10) -> list[dict]:
-    """Search one keyword, return raw SS results."""
+def _search_keyword(keyword: str, since_date: str, limit: int = 10) -> list[dict]:
+    """Search one keyword, return raw S2 results."""
     params = {
         "query": keyword,
         "fields": SS_FIELDS,
@@ -68,9 +64,10 @@ def search_keyword(keyword: str, since_date: str, limit: int = 10) -> list[dict]
     }
     url = f"{SS_SEARCH_URL}?{urlencode(params)}"
 
-    headers = {"User-Agent": "litkit-discover/0.1"}
-    if S2_API_KEY:
-        headers["x-api-key"] = S2_API_KEY
+    headers = {"User-Agent": "litkit-discover/0.2"}
+    api_key = get_s2_api_key()
+    if api_key:
+        headers["x-api-key"] = api_key
 
     req = Request(url, headers=headers)
 
@@ -80,30 +77,31 @@ def search_keyword(keyword: str, since_date: str, limit: int = 10) -> list[dict]
         return data.get("data", [])
     except HTTPError as exc:
         if exc.code == 429:
-            print(f"[scout_semantic] Rate limited, sleeping 5s…", file=sys.stderr)
+            log.warning("Rate limited, sleeping 5s…")
             time.sleep(5)
         else:
-            print(f"[scout_semantic] HTTP {exc.code} for keyword '{keyword}'", file=sys.stderr)
+            log.warning("HTTP %s for keyword '%s'", exc.code, keyword)
     except URLError as exc:
-        print(f"[scout_semantic] URLError for '{keyword}': {exc}", file=sys.stderr)
+        log.warning("URLError for '%s': %s", keyword, exc)
     except Exception as exc:
-        print(f"[scout_semantic] ERROR for '{keyword}': {exc}", file=sys.stderr)
+        log.error("error for '%s': %s", keyword, exc)
 
     return []
 
 
-def query_semantic(keywords: list[str], since_date: str, max_results: int) -> list[dict]:
+def query(keywords: list[str], since_date: str, max_results: int) -> list[dict]:
+    """Search Semantic Scholar across a sample of keywords, dedup by paper id."""
     results: list[dict] = []
     seen_ids: set[str] = set()
 
-    # Use representative keywords (first 15 to avoid rate limits)
+    # Use representative keywords (first 15 to avoid rate limits).
     sample_keywords = keywords[:15]
 
     for kw in sample_keywords:
         if len(results) >= max_results:
             break
 
-        raw = search_keyword(kw, since_date, limit=10)
+        raw = _search_keyword(kw, since_date, limit=10)
         time.sleep(0.5)  # respect rate limit
 
         for item in raw:
@@ -150,26 +148,5 @@ def query_semantic(keywords: list[str], since_date: str, max_results: int) -> li
             if len(results) >= max_results:
                 break
 
-    print(f"[scout_semantic] Done — {len(results)} papers.", file=sys.stderr)
+    log.info("Done — %d papers.", len(results))
     return results
-
-
-# ── Entry point ───────────────────────────────────────────────────────────────
-
-
-def main():
-    if "--test" in sys.argv:
-        print(json.dumps(dummy_papers(), indent=2))
-        return
-
-    cfg = load_config(LITKIT_CONFIG)
-    lookback = cfg.get("lookback_days", 7)
-    since_date = (datetime.date.today() - datetime.timedelta(days=lookback)).isoformat()
-    keywords = all_keywords(cfg)
-
-    papers = query_semantic(keywords, since_date, max_results=30)
-    print(json.dumps(papers, indent=2))
-
-
-if __name__ == "__main__":
-    main()

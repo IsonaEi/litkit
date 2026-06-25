@@ -31,12 +31,12 @@ export LIT_QUERY_CORPUS="/path/to/your/references"
 
 **Step 2** — Preview what will be ingested (no embedding, no writes):
 ```bash
-python3 scripts/ingest.py --dry-run
+litkit-ingest --dry-run
 ```
 
 **Step 3** — Run full ingest:
 ```bash
-python3 scripts/ingest.py
+litkit-ingest
 ```
 
 Expected time: ~30–60 min for 200 PDFs (Docling OCR) + ~10–20 min embedding (GPU).
@@ -60,13 +60,13 @@ stored in `LIT_QUERY_DB`. Unchanged files are skipped automatically.
 
 ```bash
 # Ingest only new/changed files
-python3 scripts/ingest.py
+litkit-ingest
 
 # Force re-process all files
-python3 scripts/ingest.py --force
+litkit-ingest --force
 
 # Add --corpus to override the env var
-python3 scripts/ingest.py --corpus /path/to/new/batch
+litkit-ingest --corpus /path/to/new/batch
 ```
 
 When a file is re-ingested, all existing Qdrant points for that file are
@@ -79,7 +79,7 @@ deleted before the new chunks are inserted (no duplicate chunks).
 | Error | Cause | Fix |
 |-------|-------|-----|
 | `LIT_QUERY_CORPUS is not set` | Env var missing | `export LIT_QUERY_CORPUS=...` |
-| `Qdrant DB not found` | Ingest not run yet | Run `python3 scripts/ingest.py` |
+| `Qdrant DB not found` | Ingest not run yet | Run `litkit-ingest` |
 | `Collection '...' is empty` | Ingest failed or wrong collection name | Check logs; set `LIT_QUERY_COLLECTION` |
 | `ImportError: No module named 'docling'` | Dependencies missing | `pip install docling FlagEmbedding qdrant-client` |
 | PDF parse warning | Corrupted or password-protected PDF | The file is skipped; manifest not updated (will retry next run) |

@@ -31,32 +31,36 @@ pip install -e ".[discover-rerank]"
 
 ```bash
 # Print a ranked digest of recent papers to stdout (default mode):
-ENTREZ_EMAIL=you@example.com python3 scripts/run_scout.py --once
+ENTREZ_EMAIL=you@example.com litkit-discover --once
 
 # Override the query and write the digest to a file:
-ENTREZ_EMAIL=you@example.com python3 scripts/run_scout.py \
+ENTREZ_EMAIL=you@example.com litkit-discover \
     --once --query "place cells navigation" --output digest.md
 
 # Restrict to specific sources:
-python3 scripts/run_scout.py --once --sources pubmed,biorxiv
+litkit-discover --once --sources pubmed,biorxiv
 
 # Scheduled run — writes JSON + digest + log to $LITKIT_OUTPUT:
-ENTREZ_EMAIL=you@example.com python3 scripts/run_scout.py --cron
+ENTREZ_EMAIL=you@example.com litkit-discover --cron
 
-# No-network smoke test (dummy data from every scout, no API keys):
-python3 scripts/run_scout.py --test
+# No-network smoke test (dummy data from every source, no API keys):
+litkit-discover --test
 ```
 
-Each scout can also be run on its own and prints a JSON array of papers, e.g.
-`python3 scripts/scout_arxiv.py` or `python3 scripts/scout_pubmed.py --test`.
+`litkit-discover` is equivalent to `python -m litkit.cli discover`. From Python,
+call `litkit.discover.discover_papers(keywords=[...], sources=[...])` directly to
+get the ranked list of paper dicts; an AI agent gets the same via the MCP
+`discover_papers` tool.
 
 ## Configuration
 
-Copy the example config and edit the keyword clusters, sources, lookback window,
-and RSS feed list:
+Copy the bundled example config and edit the keyword clusters, sources, lookback
+window, and RSS feed list (the example ships inside the package — print it with
+`python3 -c "from litkit.config import get_discover_config_path as p; print(open(p()).read())"`):
 
 ```bash
-cp references/search-config-example.json my-search-config.json
+python3 -c "from litkit.config import get_discover_config_path as p; print(open(p()).read())" \
+    > my-search-config.json
 $EDITOR my-search-config.json
 export LITKIT_CONFIG="$PWD/my-search-config.json"
 ```
@@ -70,7 +74,7 @@ Key fields: `keyword_clusters`, `lookback_days`, `relevance_threshold`,
 |----------|----------|---------|---------|
 | `ENTREZ_EMAIL` | Yes (for PubMed) | — | NCBI Entrez API contact requirement |
 | `S2_API_KEY` | No | — | Semantic Scholar API key (raises rate limits) |
-| `LITKIT_CONFIG` | No | `references/search-config-example.json` | Path to your search config JSON |
+| `LITKIT_CONFIG` | No | bundled `search-config-example.json` | Path to your search config JSON |
 | `LITKIT_OUTPUT` | No | `/tmp/litkit-discover` | Output directory for `--cron` mode |
 | `LITKIT_CORPUS_DIR` | No | — | Directory of `.md` notes for Stage-2 corpus-affinity re-ranking. Unset = BM25-only. |
 | `LITKIT_NOTIFY_CMD` | No | — | Shell command to fire when a cron digest is ready (summary text appended as a final argument). Unset = no notification. |
@@ -93,15 +97,15 @@ The `candidates-YYYY-MM-DD.json` file is designed to feed the
 ```bash
 python3 -c "import json,sys; [print(p['doi']) for p in json.load(open(sys.argv[1])) if p.get('doi')]" \
     candidates-2026-03-23.json | while read doi; do
-        bash ../manage/scripts/download.sh "$doi" library/papers/
+        bash ../scripts/download.sh "$doi" library/papers/
 done
 ```
 
 ## Scheduling
 
-To run periodically, wire `run_scout.py --cron` into any scheduler (`cron`,
+To run periodically, wire `litkit-discover --cron` into any scheduler (`cron`,
 systemd timers, etc.). Example weekly crontab entry (Mondays 9 AM):
 
 ```cron
-0 9 * * 1 ENTREZ_EMAIL=you@example.com LITKIT_CONFIG=/path/to/search-config.json python3 /path/to/litkit/discover/scripts/run_scout.py --cron
+0 9 * * 1 ENTREZ_EMAIL=you@example.com LITKIT_CONFIG=/path/to/search-config.json litkit-discover --cron
 ```

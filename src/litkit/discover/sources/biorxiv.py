@@ -1,33 +1,22 @@
-#!/usr/bin/env python3
-"""scout_biorxiv.py — bioRxiv scout for the discover tool.
+"""bioRxiv source — fetches recent preprints from the bioRxiv REST API.
 
-Fetches recent preprints from the bioRxiv REST API and filters by keyword.
-Outputs a JSON array of papers to stdout.
-
-Usage:
-    python3 scout_biorxiv.py          # normal run
-    python3 scout_biorxiv.py --test   # return 2 dummy papers, no network
+The requests dependency is imported lazily inside :func:`query`.
 """
 
-import json
-import sys
+from __future__ import annotations
+
 import datetime
+import logging
 
-from config import LITKIT_CONFIG
-from scout_utils import load_config, all_keywords, keyword_hits, paper_schema
+from litkit.discover.sources.common import keyword_hits, paper_schema
 
-# ── Dependency imports ──────────────────────────────────────────────────────
+log = logging.getLogger(__name__)
 
-try:
-    import requests
-except ImportError:
-    requests = None
-    print("[scout_biorxiv] WARNING: requests not installed. Run: pip install requests", file=sys.stderr)
-
-# ── Test mode ────────────────────────────────────────────────────────────────
+NAME = "biorxiv"
 
 
 def dummy_papers() -> list[dict]:
+    """Two offline dummy papers for the no-network smoke test."""
     today = datetime.date.today().isoformat()
     return [
         paper_schema(
@@ -55,30 +44,31 @@ def dummy_papers() -> list[dict]:
     ]
 
 
-# ── bioRxiv query ─────────────────────────────────────────────────────────────
-
-
-def query_biorxiv(keywords: list[str], since_date: str, max_results: int) -> list[dict]:
-    if requests is None:
-        print("[scout_biorxiv] ERROR: requests not available.", file=sys.stderr)
-        return []
+def query(keywords: list[str], since_date: str, max_results: int) -> list[dict]:
+    """Fetch recent bioRxiv preprints in the date window and filter by keyword."""
+    try:
+        import requests
+    except ImportError as exc:  # pragma: no cover - depends on extras
+        raise ImportError(
+            "requests is required for the bioRxiv source. "
+            "Install it with: pip install 'litkit[discover]'"
+        ) from exc
 
     today = datetime.date.today().isoformat()
-    # bioRxiv API interval format: YYYY-MM-DD/YYYY-MM-DD
     url = f"https://api.biorxiv.org/details/biorxiv/{since_date}/{today}/0"
 
-    print(f"[scout_biorxiv] Fetching: {url}", file=sys.stderr)
+    log.info("Fetching: %s", url)
 
     try:
         r = requests.get(url, timeout=60)
         r.raise_for_status()
         data = r.json()
     except Exception as exc:
-        print(f"[scout_biorxiv] ERROR: {exc}", file=sys.stderr)
+        log.error("request failed: %s", exc)
         return []
 
     collection = data.get("collection", [])
-    print(f"[scout_biorxiv] {len(collection)} preprints in date window.", file=sys.stderr)
+    log.info("%d preprints in date window.", len(collection))
 
     results: list[dict] = []
     seen_dois: set[str] = set()
@@ -99,7 +89,6 @@ def query_biorxiv(keywords: list[str], since_date: str, max_results: int) -> lis
 
         date_str = item.get("date", datetime.date.today().isoformat())
 
-        # Authors: field is a single string "Last, First; Last2, First2"
         raw_authors = item.get("authors", "")
         authors = [a.strip() for a in raw_authors.split(";") if a.strip()] if raw_authors else []
 
@@ -123,27 +112,5 @@ def query_biorxiv(keywords: list[str], since_date: str, max_results: int) -> lis
         if len(results) >= max_results:
             break
 
-    print(f"[scout_biorxiv] Done — {len(results)} papers.", file=sys.stderr)
+    log.info("Done — %d papers.", len(results))
     return results
-
-
-# ── Entry point ───────────────────────────────────────────────────────────────
-
-
-def main():
-    if "--test" in sys.argv:
-        print(json.dumps(dummy_papers(), indent=2))
-        return
-
-    cfg = load_config(LITKIT_CONFIG)
-    lookback = cfg.get("lookback_days", 7)
-    since_date = (datetime.date.today() - datetime.timedelta(days=lookback)).isoformat()
-    keywords = all_keywords(cfg)
-    max_results = cfg.get("biorxiv_max_results", 30)
-
-    papers = query_biorxiv(keywords, since_date, max_results)
-    print(json.dumps(papers, indent=2))
-
-
-if __name__ == "__main__":
-    main()

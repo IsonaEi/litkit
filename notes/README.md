@@ -32,27 +32,39 @@ Two principles make the notes durable and trustworthy:
   in, but keep quoted passages verbatim in the source language. The structure,
   not the language, is what makes the notes comparable.
 
+The template, the example taxonomy, and the annotation prompt are shipped as
+package data and read at runtime via `importlib.resources` — the source markdown
+lives under
+[`src/litkit/notes/`](../src/litkit/notes/) (`templates/note-template.md`,
+`references/categories-example.md`, `references/annotation-prompt.md`).
+
 ## How to use it
 
-**By hand:** open [templates/note-template.md](templates/note-template.md), copy
-the template block, and fill it in as you read. See the worked
-`Zador et al. (2023)` example in that file for the target quality.
+**By hand:** print the template and copy the block, filling it in as you read.
+See the worked `Zador et al. (2023)` example in it for the target quality.
 
-**With an LLM agent:** hand the task prompt in
-[references/annotation-prompt.md](references/annotation-prompt.md) to any agent
-that can read a file and write a markdown file. The prompt is runner-agnostic —
-no specific API, model, or platform is assumed. Fill in the paper path, template
-path, category list, and output path, and the agent produces a completed note
-(leaving User Notes empty).
+```bash
+python3 -c "from litkit.notes import load_template; print(load_template())"
+python3 -c "from litkit.notes import load_categories; print(load_categories())"
+```
 
-**Categories:** [references/categories-example.md](references/categories-example.md)
-is an example taxonomy (computational / behavioral neuroscience). Replace it with
-categories for your own domain.
+**With an LLM agent (via MCP):** point your MCP client at the litkit server and
+use the `write_reading_note(paper_path)` prompt — it returns the full template
+plus filling instructions. The template and the example taxonomy are also exposed
+as the `litkit://note-template` and `litkit://categories-example` resources.
+
+**With any agent (no MCP):** build the same prompt in Python and hand it to any
+agent that can read a file and write a markdown file — runner-agnostic, no
+specific API or model assumed (it leaves User Notes empty):
+
+```bash
+python3 -c "from litkit.notes import build_note_prompt; print(build_note_prompt('library/papers/x.md'))"
+```
 
 ## Dependencies
 
-None. This stage ships only markdown — there is no Python package to install and
-no `litkit` extra to add. The only optional integration is the
+None beyond the core `litkit` install — this stage ships only markdown plus a
+tiny loader, with no `litkit` extra to add. The only optional integration is the
 [search](../search/) stage for filling in the Connections section, which you
 install separately (`pip install -e ".[search]"`).
 

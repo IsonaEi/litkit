@@ -1,35 +1,26 @@
-#!/usr/bin/env python3
-"""scout_pubmed.py — PubMed scout for the discover tool.
+"""PubMed source — searches PubMed via Bio.Entrez for recent papers.
 
-Searches PubMed via Bio.Entrez for recent papers matching config keywords.
-Outputs a JSON array of papers to stdout.
-
-Usage:
-    python3 scout_pubmed.py           # normal run
-    python3 scout_pubmed.py --test    # return 2 dummy papers, no network
+The biopython dependency is imported lazily inside :func:`query`; a missing
+dependency raises a clear "pip install litkit[discover]" message only when this
+source is actually run.
 """
 
-import json
-import sys
+from __future__ import annotations
+
 import datetime
+import logging
 import time
 
-from config import LITKIT_CONFIG, ENTREZ_EMAIL
-from scout_utils import load_config, all_keywords, keyword_hits, paper_schema
+from litkit.config import get_entrez_email
+from litkit.discover.sources.common import keyword_hits, paper_schema
 
-# ── Dependency imports ──────────────────────────────────────────────────────
+log = logging.getLogger(__name__)
 
-try:
-    from Bio import Entrez
-    Entrez.email = ENTREZ_EMAIL
-except ImportError:
-    Entrez = None
-    print("[scout_pubmed] WARNING: biopython not installed. Run: pip install biopython", file=sys.stderr)
-
-# ── Test mode ────────────────────────────────────────────────────────────────
+NAME = "pubmed"
 
 
 def dummy_papers() -> list[dict]:
+    """Two offline dummy papers for the no-network smoke test."""
     today = datetime.date.today().isoformat()
     return [
         paper_schema(
@@ -57,33 +48,37 @@ def dummy_papers() -> list[dict]:
     ]
 
 
-# ── PubMed query ─────────────────────────────────────────────────────────────
+def query(keywords: list[str], since_date: str, max_results: int) -> list[dict]:
+    """Search PubMed for recent papers matching ``keywords``."""
+    try:
+        from Bio import Entrez
+    except ImportError as exc:  # pragma: no cover - depends on extras
+        raise ImportError(
+            "biopython is required for the PubMed source. "
+            "Install it with: pip install 'litkit[discover]'"
+        ) from exc
 
-
-def query_pubmed(keywords: list[str], since_date: str, max_results: int) -> list[dict]:
-    if Entrez is None:
-        print("[scout_pubmed] ERROR: biopython not available.", file=sys.stderr)
-        return []
+    Entrez.email = get_entrez_email()
 
     kw_clause = " OR ".join(f'"{kw}"[Title/Abstract]' for kw in keywords)
     date_clause = f'("{since_date}"[PDAT] : "3000"[PDAT])'
-    query = f"({kw_clause}) AND {date_clause}"
+    pubmed_query = f"({kw_clause}) AND {date_clause}"
 
-    print(f"[scout_pubmed] Searching PubMed: {query[:100]}…", file=sys.stderr)
+    log.info("Searching PubMed: %s…", pubmed_query[:100])
 
     try:
-        handle = Entrez.esearch(db="pubmed", term=query, retmax=max_results)
+        handle = Entrez.esearch(db="pubmed", term=pubmed_query, retmax=max_results)
         id_list = Entrez.read(handle)["IdList"]
         handle.close()
     except Exception as exc:
-        print(f"[scout_pubmed] ERROR esearch: {exc}", file=sys.stderr)
+        log.error("esearch failed: %s", exc)
         return []
 
     if not id_list:
-        print("[scout_pubmed] No results.", file=sys.stderr)
+        log.info("No results.")
         return []
 
-    print(f"[scout_pubmed] Fetching {len(id_list)} records…", file=sys.stderr)
+    log.info("Fetching %d records…", len(id_list))
 
     try:
         time.sleep(0.4)
@@ -91,7 +86,7 @@ def query_pubmed(keywords: list[str], since_date: str, max_results: int) -> list
         records = Entrez.read(handle)
         handle.close()
     except Exception as exc:
-        print(f"[scout_pubmed] ERROR efetch: {exc}", file=sys.stderr)
+        log.error("efetch failed: %s", exc)
         return []
 
     results: list[dict] = []
@@ -119,7 +114,6 @@ def query_pubmed(keywords: list[str], since_date: str, max_results: int) -> list
                 continue
             seen_pmids.add(pmid)
 
-            # Extract date
             date_str = ""
             try:
                 pub_date = art.get("Journal", {}).get("JournalIssue", {}).get("PubDate", {})
@@ -135,7 +129,6 @@ def query_pubmed(keywords: list[str], since_date: str, max_results: int) -> list
             except Exception:
                 date_str = datetime.date.today().isoformat()
 
-            # Authors
             authors: list[str] = []
             for author in art.get("AuthorList", []):
                 last = str(author.get("LastName", ""))
@@ -160,29 +153,7 @@ def query_pubmed(keywords: list[str], since_date: str, max_results: int) -> list
                 )
             )
         except Exception as exc:
-            print(f"[scout_pubmed] WARN skipping record: {exc}", file=sys.stderr)
+            log.warning("skipping record: %s", exc)
 
-    print(f"[scout_pubmed] Done — {len(results)} papers.", file=sys.stderr)
+    log.info("Done — %d papers.", len(results))
     return results
-
-
-# ── Entry point ───────────────────────────────────────────────────────────────
-
-
-def main():
-    if "--test" in sys.argv:
-        print(json.dumps(dummy_papers(), indent=2))
-        return
-
-    cfg = load_config(LITKIT_CONFIG)
-    lookback = cfg.get("lookback_days", 7)
-    since_date = (datetime.date.today() - datetime.timedelta(days=lookback)).isoformat()
-    keywords = all_keywords(cfg)
-    max_results = cfg.get("pubmed_max_results", 50)
-
-    papers = query_pubmed(keywords, since_date, max_results)
-    print(json.dumps(papers, indent=2))
-
-
-if __name__ == "__main__":
-    main()

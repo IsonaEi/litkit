@@ -1,6 +1,6 @@
 # search
 
-Stage 3 of [litkit](../README.md). Hybrid semantic + lexical search over your
+Stage 4 of [litkit](../README.md). Hybrid semantic + lexical search over your
 own local literature corpus, with no persistent server and no data leaving your
 machine.
 
@@ -30,22 +30,22 @@ pip install -e ".[search]"     # from the repo root
 ```bash
 # Point at your corpus and index it (idempotent — skips unchanged files):
 export LIT_QUERY_CORPUS="/path/to/your/library"
-python3 scripts/ingest.py
+litkit-ingest
 
 # Preview what would be ingested without embedding or writing:
-python3 scripts/ingest.py --dry-run
+litkit-ingest --dry-run
 
 # Force a full re-process:
-python3 scripts/ingest.py --force
+litkit-ingest --force
 
 # Search (JSON output, top-8 by default):
-python3 scripts/search.py "dopamine reward prediction error" --top-k 8
+litkit-search "dopamine reward prediction error" --top-k 8
 
 # Human-readable output:
-python3 scripts/search.py "spatial memory" --format text
+litkit-search "spatial memory" --format text
 
 # Restrict to a paper section:
-python3 scripts/search.py "stimulation protocol" --section-filter Methods
+litkit-search "stimulation protocol" --section-filter Methods
 ```
 
 Valid `--section-filter` values: `Abstract`, `Introduction`, `Methods`,
@@ -59,7 +59,7 @@ paths, added to the primary `LIT_QUERY_CORPUS`):
 ```bash
 export LIT_QUERY_CORPUS="$PWD/library/notes"
 export LIT_QUERY_CORPUS_EXTRA="$PWD/library/cat-a/markdown,$PWD/library/cat-b/markdown"
-python3 scripts/ingest.py
+litkit-ingest
 ```
 
 Re-run `ingest.py` after adding new files; unchanged files (tracked by MD5 in

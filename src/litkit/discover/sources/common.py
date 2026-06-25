@@ -1,9 +1,6 @@
-"""scout_utils.py — Shared utilities for all discover scouts.
+"""Shared helpers for discover sources — config loading and the paper schema."""
 
-Provides common helper functions to avoid code duplication across
-scout_pubmed.py, scout_biorxiv.py, scout_arxiv.py, scout_semantic.py,
-and scout_rss.py.
-"""
+from __future__ import annotations
 
 import json
 from pathlib import Path
@@ -39,7 +36,7 @@ def paper_schema(
     keyword_hits_list: list[str],
     source: str,
 ) -> dict:
-    """Return a standardized paper dict for use across all scouts."""
+    """Return a standardized paper dict for use across all sources."""
     return {
         "title": title,
         "authors": authors,

@@ -21,13 +21,13 @@ ingested.
 
 ```bash
 # Default: JSON output, top-8 results
-python3 scripts/search.py "your query here"
+litkit-search "your query here"
 
 # Human-readable (easier to scan quickly)
-python3 scripts/search.py "your query" --format text --top-k 5
+litkit-search "your query" --format text --top-k 5
 
 # More results
-python3 scripts/search.py "your query" --top-k 20
+litkit-search "your query" --top-k 20
 ```
 
 ---
@@ -39,16 +39,16 @@ Valid values: `Abstract`, `Introduction`, `Methods`, `Results`, `Discussion`, `R
 
 ```bash
 # Find experimental protocols
-python3 scripts/search.py "optogenetic stimulation protocol" --section-filter Methods
+litkit-search "optogenetic stimulation protocol" --section-filter Methods
 
 # Find quantitative outcomes
-python3 scripts/search.py "accuracy F1 score" --section-filter Results
+litkit-search "accuracy F1 score" --section-filter Results
 
 # Find conceptual framing
-python3 scripts/search.py "theoretical framework" --section-filter Introduction
+litkit-search "theoretical framework" --section-filter Introduction
 
 # Find summary/interpretation
-python3 scripts/search.py "limitations future work" --section-filter Discussion
+litkit-search "limitations future work" --section-filter Discussion
 ```
 
 ---
@@ -94,7 +94,7 @@ score, not an absolute similarity measure.
 
 ## Token-Efficient Agent Workflow
 
-1. **Call search:** `python3 scripts/search.py "query" --top-k 8 --format json`
+1. **Call search:** `litkit-search "query" --top-k 8 --format json`
 2. **Scan titles + section_type** of all 8 results to identify relevance.
 3. **Deep-read `text`** for top-3 only.
 4. **Cite by `source`** (filename) when referencing findings.
@@ -111,5 +111,5 @@ Results are only as current as your last ingest run.
 If you've added new papers, re-ingest before searching:
 
 ```bash
-python3 scripts/ingest.py   # skips unchanged files automatically
+litkit-ingest   # skips unchanged files automatically
 ```

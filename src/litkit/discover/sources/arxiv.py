@@ -1,35 +1,32 @@
-#!/usr/bin/env python3
-"""scout_arxiv.py — arXiv scout for the discover tool.
+"""arXiv source — searches arXiv cs.NE, q-bio.NC, q-bio.QM via the Atom API.
 
-Searches arXiv cs.NE, q-bio.NC, q-bio.QM for recent papers matching keywords.
-Uses the arXiv Atom API directly (no external arxiv library required).
-Outputs a JSON array of papers to stdout.
-
-Usage:
-    python3 scout_arxiv.py            # normal run
-    python3 scout_arxiv.py --test     # return 2 dummy papers, no network
+Uses only the Python standard library (urllib + ElementTree), so it needs no
+extra dependency.
 """
 
-import json
-import sys
+from __future__ import annotations
+
 import datetime
+import logging
 import xml.etree.ElementTree as ET
+from urllib.error import URLError
 from urllib.parse import urlencode
 from urllib.request import urlopen
-from urllib.error import URLError
 
-from config import LITKIT_CONFIG
-from scout_utils import load_config, all_keywords, keyword_hits, paper_schema
+from litkit.discover.sources.common import keyword_hits, paper_schema
+
+log = logging.getLogger(__name__)
+
+NAME = "arxiv"
 
 ARXIV_API = "http://export.arxiv.org/api/query"
 CATEGORIES = ["cs.NE", "q-bio.NC", "q-bio.QM"]
 ATOM_NS = "http://www.w3.org/2005/Atom"
 ARXIV_NS = "http://arxiv.org/schemas/atom"
 
-# ── Test mode ────────────────────────────────────────────────────────────────
-
 
 def dummy_papers() -> list[dict]:
+    """Two offline dummy papers for the no-network smoke test."""
     today = datetime.date.today().isoformat()
     return [
         paper_schema(
@@ -57,14 +54,9 @@ def dummy_papers() -> list[dict]:
     ]
 
 
-# ── arXiv query ───────────────────────────────────────────────────────────────
-
-
-def query_arxiv(keywords: list[str], since_date: str, max_results: int) -> list[dict]:
-    # Build category filter
+def query(keywords: list[str], since_date: str, max_results: int) -> list[dict]:
+    """Fetch recent arXiv entries in the configured categories, filter by keyword."""
     cat_filter = " OR ".join(f"cat:{c}" for c in CATEGORIES)
-
-    # Fetch by category and filter locally by keyword
     search_query = f"({cat_filter})"
 
     params = {
@@ -76,19 +68,19 @@ def query_arxiv(keywords: list[str], since_date: str, max_results: int) -> list[
     }
 
     url = f"{ARXIV_API}?{urlencode(params)}"
-    print(f"[scout_arxiv] Fetching: {url[:120]}…", file=sys.stderr)
+    log.info("Fetching: %s…", url[:120])
 
     try:
         with urlopen(url, timeout=60) as resp:
             xml_data = resp.read()
     except URLError as exc:
-        print(f"[scout_arxiv] ERROR: {exc}", file=sys.stderr)
+        log.error("request failed: %s", exc)
         return []
 
     try:
         root = ET.fromstring(xml_data)
     except ET.ParseError as exc:
-        print(f"[scout_arxiv] XML parse error: {exc}", file=sys.stderr)
+        log.error("XML parse error: %s", exc)
         return []
 
     try:
@@ -106,13 +98,11 @@ def query_arxiv(keywords: list[str], since_date: str, max_results: int) -> list[
             published = entry.findtext(f"{{{ATOM_NS}}}published") or ""
             arxiv_id_url = entry.findtext(f"{{{ATOM_NS}}}id") or ""
 
-            # Date filter
             if published:
                 pub_date = datetime.date.fromisoformat(published[:10])
                 if pub_date < cutoff:
                     continue
 
-            # Keyword filter
             hits = keyword_hits(title, abstract, keywords)
             if not hits:
                 continue
@@ -121,13 +111,11 @@ def query_arxiv(keywords: list[str], since_date: str, max_results: int) -> list[
                 continue
             seen_ids.add(arxiv_id_url)
 
-            # Authors
             authors = [
                 (a.findtext(f"{{{ATOM_NS}}}name") or "").strip()
                 for a in entry.findall(f"{{{ATOM_NS}}}author")
             ]
 
-            # DOI from arxiv:doi element
             doi_el = entry.find(f"{{{ARXIV_NS}}}doi")
             doi = doi_el.text.strip() if doi_el is not None and doi_el.text else None
 
@@ -149,28 +137,7 @@ def query_arxiv(keywords: list[str], since_date: str, max_results: int) -> list[
                 break
 
         except Exception as exc:
-            print(f"[scout_arxiv] WARN skipping entry: {exc}", file=sys.stderr)
+            log.warning("skipping entry: %s", exc)
 
-    print(f"[scout_arxiv] Done — {len(results)} papers.", file=sys.stderr)
+    log.info("Done — %d papers.", len(results))
     return results
-
-
-# ── Entry point ───────────────────────────────────────────────────────────────
-
-
-def main():
-    if "--test" in sys.argv:
-        print(json.dumps(dummy_papers(), indent=2))
-        return
-
-    cfg = load_config(LITKIT_CONFIG)
-    lookback = cfg.get("lookback_days", 7)
-    since_date = (datetime.date.today() - datetime.timedelta(days=lookback)).isoformat()
-    keywords = all_keywords(cfg)
-
-    papers = query_arxiv(keywords, since_date, max_results=30)
-    print(json.dumps(papers, indent=2))
-
-
-if __name__ == "__main__":
-    main()

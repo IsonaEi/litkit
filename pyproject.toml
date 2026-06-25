@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "litkit"
-version = "0.1.0"
-description = "A literature toolkit: discover papers across sources, manage a local PDF library, and search it semantically."
+version = "0.2.0"
+description = "A literature toolkit (discover, manage, notes, search) usable as a CLI and as an MCP server for AI agents."
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "Apache-2.0" }
@@ -15,6 +15,8 @@ authors = [
 keywords = [
     "literature",
     "academic-search",
+    "mcp",
+    "model-context-protocol",
     "pubmed",
     "arxiv",
     "biorxiv",
@@ -32,8 +34,9 @@ classifiers = [
     "Topic :: Scientific/Engineering",
     "Topic :: Text Processing :: Indexing",
 ]
-# The core install ships the orchestration code only; each stage pulls its
-# own heavier dependencies through the optional extras below.
+# The core install ships the orchestration code only; each stage pulls its own
+# heavier dependencies through the optional extras below. Heavy deps are imported
+# lazily, so `import litkit` (and the MCP server) work without any extra.
 dependencies = []
 
 [project.optional-dependencies]
@@ -59,19 +62,36 @@ search = [
     "FlagEmbedding",
     "qdrant-client",
 ]
+# MCP server — FastMCP ships in the `mcp` package.
+mcp = [
+    "mcp",
+]
 # Everything.
 all = [
     "litkit[discover]",
     "litkit[discover-rerank]",
     "litkit[manage]",
     "litkit[search]",
+    "litkit[mcp]",
 ]
+
+[project.scripts]
+litkit-discover = "litkit.cli:discover_main"
+litkit-search = "litkit.cli:search_main"
+litkit-ingest = "litkit.cli:ingest_main"
+litkit-enrich = "litkit.cli:enrich_main"
+litkit-mcp = "litkit.mcp_server:main"
 
 [project.urls]
 Homepage = "https://github.com/IsonaEi/litkit"
 Repository = "https://github.com/IsonaEi/litkit"
 
-[tool.setuptools]
-# Tools are organised as standalone script directories rather than an importable
-# package; there is nothing to auto-discover.
-packages = []
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+# Ship the bundled markdown + the discover search-config example as package data
+# so importlib.resources can read them from an installed wheel.
+"litkit.notes.templates" = ["*.md"]
+"litkit.notes.references" = ["*.md"]
+"litkit.discover" = ["*.json"]

@@ -17,8 +17,10 @@ metadata from Semantic Scholar, and **audit** the collection for consistency.
 - `audit.sh` — Full audit of a `references/` directory: PDF validity, every PDF
   has a matching markdown, and `index.json` integrity (valid JSON, paths exist,
   no duplicate IDs, counts match).
-- `enrich_metadata.py` — Fill missing `abstract`/`year`/`authors` and refresh
+- `litkit-enrich` — Fill missing `abstract`/`year`/`authors` and refresh
   `citation_count` in an `index.json` from Semantic Scholar. Idempotent.
+  (`litkit.manage.enrich.enrich_library` from Python; the MCP `enrich_metadata`
+  tool for agents.)
 
 ## Install
 
@@ -52,8 +54,8 @@ bash scripts/verify.sh paper.pdf paper.md
 bash scripts/audit.sh library/
 
 # Enrich an index.json in place with Semantic Scholar metadata:
-python3 scripts/enrich_metadata.py --input library/index.json --output library/index.json
-python3 scripts/enrich_metadata.py --input library/index.json --output /dev/null --dry-run
+litkit-enrich --input library/index.json --output library/index.json
+litkit-enrich --library library/ --dry-run
 ```
 
 ### Suggested library layout
@@ -89,5 +91,5 @@ arXiv — which are always tried first.
 
 | Variable | Required | Default | Purpose |
 |----------|----------|---------|---------|
-| `S2_API_KEY` | No | — | Semantic Scholar API key for `enrich_metadata.py` (raises rate limits) |
+| `S2_API_KEY` | No | — | Semantic Scholar API key for `litkit-enrich` (raises rate limits) |
 | `LITKIT_ENABLE_SCIHUB` | No | `0` (off) | Set to `1` to allow the opt-in Sci-Hub download fallback |

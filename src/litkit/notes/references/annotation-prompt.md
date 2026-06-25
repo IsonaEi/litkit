@@ -64,7 +64,7 @@ Have the agent run a semantic search over your indexed corpus before writing
 Connections:
 
 ```
-python3 search/scripts/search.py \
+litkit-search \
   "a natural-language description of this paper's core topic or method" \
   --top-k 8 --format text
 ```
